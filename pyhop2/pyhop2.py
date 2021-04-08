@@ -107,6 +107,12 @@ class State():
         x += ')'
         return x
 
+    def nameless_repr(self):
+        x = f"("
+        x += ', '.join([f'{v}={vars(self)[v]}' for v in vars(self) if v != '__name__'])
+        x += ')'
+        return x
+
     def copy(self,name=None):
         """
         Make a copy of the state. If name is given, then give the copy that name.
@@ -1020,6 +1026,120 @@ def run_lazy_lookahead(state, todo_list, verbose=1, max_tries=10):
     if verbose >= 1: print('RLL> Too many tries, giving up.')
     if verbose >= 2: state.display(heading='RLL> final state')
     return state
+
+
+###############################################################################
+# GBFS
+import heapq
+
+def history_string(state, tasks):
+    return state.nameless_repr() + repr(tasks[0]) if tasks else ''
+
+def _apply_action_GBFS(plans, state, task1, more_tasks, plan, depth, h, history, verbose=0):
+    """
+    apply_action is called only when task1's name matches an action name.
+    It applies the action by retrieving the action's function definition
+    and calling it on the arguments.
+    """
+    if verbose >= 3: print(f'depth {depth} action {task1}: apply action')
+    action = _current_domain._action_dict[task1[0]]
+    newstate = action(state.copy(),*task1[1:])
+    if newstate:
+        history_str = history_string(newstate, more_tasks)
+        if history_str in history:
+            if verbose >= 3:
+                print(f'depth {depth}', end=' ')
+                print(repr(newstate) + ' repeated, not put into queue')
+        else:
+            history[history_str] = True
+            h_new = h(newstate, more_tasks)
+            if verbose >= 3:
+                print(f'depth {depth}', end=' ')
+                print(repr(newstate) + ' with heuristic ' + str(h_new))
+            heapq.heappush(plans, (h_new, (newstate, more_tasks, plan+[task1], depth+1)))
+    elif verbose >= 3: print(f'depth {depth} action {task1} not applicable')
+
+def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, history, verbose=0):
+    """
+    if task1's name has an entry in the task-method dictionary, iterate
+    through the methods until we find one that's applicable, then apply
+    it to produce a list of subtasks, and call seek_plan recursively on
+    the subtask list + more_tasks.
+    If seek_plan fails, go on to the next method in the list.
+    """
+    if verbose >= 3: 
+        print(f'depth {depth} task {task1}: look for a task method')
+    relevant = _current_domain._task_method_dict[task1[0]]
+    if verbose >= 3:
+        print(f'depth {depth} task {task1} methods {[m.__name__ for m in relevant]}')
+    for method in relevant:
+        if verbose >= 3: 
+            print(f'depth {depth} task {task1}: trying method {method.__name__}')
+        subtasks = method(state,*task1[1:])
+        # Can't just say "if subtasks:", because that's wrong if subtasks == []
+        if subtasks != False and subtasks != None:
+            new_todo = subtasks+more_tasks
+            history_str = history_string(state, new_todo)
+            if history_str in history:
+                if verbose >= 3:
+                    print(f'depth {depth} task_method {method.__name__}', \
+                          f'subtasks: {subtasks} repeated, not put into queue')
+            else:
+                history[history_str] = True
+                h_new = h(state, new_todo)
+                if verbose >= 3:
+                    print(f'depth {depth} task_method {method.__name__}', \
+                          f'subtasks: {subtasks} put into queue with heuristic {h_new}')
+                heapq.heappush(plans, (h_new, (state, new_todo, plan, depth+1)))
+        else:
+            if verbose >= 3:
+                print(f'depth {depth}', \
+                      f'task_method {method.__name__} not applicable')
+
+def find_plan_GBFS(state, todo_list, h, verbose=0):
+    """
+    h is heuristic. Takes two arguments: state and todo-list
+    """
+    if verbose >= 1: 
+        todo_list_str =     \
+            '[' + ', '.join([_todo_to_string(x) for x in todo_list]) + ']'
+        print(f'FP> find_plan, verbose={verbose}:')
+        print(f'    state = {state.__name__}\n    todo_list = {todo_list_str}')
+    result = seek_plan_GBFS([(h(state, todo_list), (state, todo_list, [], 0))], h, {history_string(state, todo_list): True}, verbose)
+    if verbose >= 1: print('FP> result =',result,'\n')
+    return result
+
+
+def seek_plan_GBFS(plans, h, history, verbose=0):
+    """
+    plans is a priority queue with (state, todo_list, plan, depth) tuples sorted by heuristic
+    """
+    while plans:
+        h_pop, (state, todo_list, plan, depth) = heapq.heappop(plans)
+        if verbose >= 2: 
+            todo_list_str =     \
+                    '[' + ', '.join([_todo_to_string(x) for x in todo_list]) + ']'
+            print(f'depth {depth} todo_list ' + todo_list_str + f' popped with heuristic {h_pop}')
+        if todo_list == []:
+            if verbose >= 3:
+                print(f'depth {depth} no more tasks or goals, return plan')
+            return plan
+        todo1 = todo_list[0]
+        ttype = get_type(todo1)
+        if ttype in {'list','tuple'}:
+            if todo1[0] in _current_domain._action_dict:
+                _apply_action_GBFS(plans, state, todo1, todo_list[1:], \
+                                plan, depth, h, history, verbose=verbose)
+            elif todo1[0] in _current_domain._task_method_dict:
+                _find_task_method_GBFS(plans, state, todo1, todo_list[1:], \
+                                    plan, depth, h, history, verbose=verbose)
+        else:
+            raise Exception(    \
+                f"depth {depth}: {todo1} isn't an action, task, goal, or multigoal\n")
+    return False
+
+
+
 
 ###############################################################################
 # Create an initial domain. I would have preferred to locate this near the
