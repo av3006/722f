@@ -19,6 +19,10 @@ Helpers:
 """
 
 def get_block_above(state, block):
+    """
+    returns the index of the stack that the block is in
+    in the state.stacks representation.
+    """
     if state.clear[block]: return None
     for stack in state.stacks:
         if block in stack:
@@ -28,7 +32,8 @@ def get_block_above(state, block):
 def m_make_clear_dump(state, b1, b2, dump_index):
     """
     places all blocks above b1 on top of the stack
-    with index dump_index
+    with index dump_index, moving each block from the top,
+    one by one.
     """
     if state.clear[b1]:
         return []
@@ -39,7 +44,7 @@ def m_make_clear_dump(state, b1, b2, dump_index):
 def m_make_clear_dump_to_smallest(state, b1, b2):
     """
     dumps all blocks above b1 onto the smallest stack
-    while doesn't contain b2 (moving each block one
+    which doesn't contain b2 (moving each block one
     at a time).
     """
     num_stacks = len(state.stacks)
@@ -59,6 +64,12 @@ def m_make_clear_dump_to_smallest(state, b1, b2):
     return[('make_clear_dump', b1, b2, smallest)]
 
 def m_make_clear_dump_to_nbr(state, b1, b2):
+    """
+    finds the closest neighboring stack
+    to b1's stack which also don't contain b2. It then
+    uses make_clear_dump to dump everything above
+    b1 onto that neighbor.
+    """
     num_stacks = len(state.stacks)
     if num_stacks < 3: return None
     b1_stack = get_stack_of_block(state, b1)
@@ -70,12 +81,16 @@ def m_make_clear_dump_to_nbr(state, b1, b2):
     return [('make_clear_dump', b1 ,b2, left_nbr if left_nbr != b2_stack else right_nbr)]
 
 def m_make_clear_distribute(state, b1, b2):
+    """
+    Uses aux method to distribute all the blocks above b1
+    to all the other stacks which also don't contain b2.
+    """
     return [('make_clear_distribute_aux', b1, b2, get_stack_of_block(state,b1))]
 
 def m_make_clear_distribute_aux(state, b1, b2, dest_stack_index):
     """
-    distributes the blocks on top of b1 across all other stacks
-    other than the stack of b2
+    Distributes the blocks on top of b1 across all other stacks
+    other than the stack of b2.
     """
     if state.clear[b1]:
         return []
@@ -95,8 +110,9 @@ def m_make_clear_distribute_aux(state, b1, b2, dest_stack_index):
 
 def m_make_clear_split_to_nbr(state, b1, b2):
     """
-    finds left and right neighboring stacks other than with b2
-    and alternates placing blocks on those two neighbors 
+    finds closest left and right neighboring stacks which also
+    don't contain b2, then alternates placing blocks on those 
+    two neighbors.
     """
     num_stacks = len(state.stacks)
     if num_stacks < 4: return None
@@ -123,6 +139,11 @@ def m_make_clear_split_to_nbr(state, b1, b2):
     return [('make_clear_split', b1, b2, left_stack, right_stack, True)]
 
 def m_make_clear_split_to_smallest(state, b1, b2):
+    """
+    finds the two smallest stacks which don't contain
+    b1 or b2, then alternates placing blocks onto those 
+    shortest stacks
+    """
     num_stacks = len(state.stacks)
     if(num_stacks < 4): return None
     b1_stack = get_stack_of_block(state, b1)
@@ -145,12 +166,16 @@ def m_make_clear_split_to_smallest(state, b1, b2):
             small_stack2 = temp
     return [('make_clear_split', b1, b2, small_stack1, small_stack2, True)]
     
-def m_make_clear_split(state, b1, b2, left_stack, right_stack, iter_even : bool):
+def m_make_clear_split(state, b1, b2, stack1, stack2, iter_even : bool):
+    """ 
+    workhorse split method. It alternates placing blocks above b1
+    onto the stack1 and stack2.
+    """
     if state.clear[b1]:
         return []
     b_above = get_block_above(state, b1)
-    return[('make_clear_split', b_above, b2, left_stack, right_stack, not iter_even), 
-            ('move_to_stack', b_above, left_stack if iter_even else right_stack)]
+    return[('make_clear_split', b_above, b2, stack1, stack2, not iter_even), 
+            ('move_to_stack', b_above, stack1 if iter_even else stack2)]
 
 dummy_block = 'DUMMY_BLOCK'
 
@@ -163,6 +188,11 @@ dummy_block = 'DUMMY_BLOCK'
     action which may saffect costs.
 """
 def m_remove_dummy(state):
+    """ 
+    Removes the dummy_block from the state.
+    This must be used anytime after the dummy_block 
+    is used to clear a stack.
+    """
     for stack in state.stacks:
         if dummy_block in stack: stack.remove(dummy_block)
         if len(stack) > 0:
@@ -172,6 +202,10 @@ def m_remove_dummy(state):
 pyhop2.declare_task_methods('remove_dummy', m_remove_dummy)
 
 def m_dissolve_stack(state, stack):
+    """
+    This is used to clear a specified stack from the table.
+    Note that it can use any of the clearing methods for blocks.
+    """
     state.stacks[stack].insert(0,dummy_block)
     return [('make_clear', dummy_block, dummy_block), ('remove_dummy')]
 
@@ -179,12 +213,22 @@ pyhop2.declare_task_methods('dissolve_stack', m_dissolve_stack)
 
 
 def m_move_one(state, b1, dest):
+    """
+    This is a general move method which doesn't
+    care if b1 is on the table or not or if
+    dest is the table or a block.
+    """
     start = state.pos[b1]
     if start == dest: return []
-    if start == 'table': return [('stack', b1, dest)]
-    if dest == 'table': return [('unstack', b1, start)]
-    return [('restack', b1, start, dest)]
+    elif start == 'table': return [('stack', b1, dest)]
+    elif dest == 'table': return [('unstack', b1, start)]
+    else: return [('restack', b1, start, dest)]
 
+
+""" 
+Adding all the above methods to the planner.
+The main one to take note of is 'make_clear'.
+"""
 pyhop2.declare_task_methods('move_one', m_move_one)
 pyhop2.declare_task_methods('make_clear', m_make_clear_distribute, 
     m_make_clear_split_to_nbr, m_make_clear_split_to_smallest, 

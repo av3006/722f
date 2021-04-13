@@ -6,6 +6,18 @@ import blocks_generator as gen
 dummy_block = 'DUMMY_BLOCK'
 
 def m_pos(state, b1, b2):
+    """
+    This method achieves the goal state.pos[b1] == b2.
+    To do this, it clears b1, clears b2, (clears b1 again
+    in case it somehow got covered while b2 was being cleared)
+    and finally moves b1 to b2.
+    If b2 is the table:
+        if there is space on the table, it clears b1 and moves
+        it to the table
+        if there is no space on the table, it clears the shortest
+        stack from the table whose bottom block does not belong on
+        the table, then use that spot to place b1.
+    """
     if state.pos[b1] == b2: return []
 
     if b2 != 'table':
@@ -27,18 +39,32 @@ def m_pos(state, b1, b2):
 
 pyhop2.declare_goal_methods('pos', m_pos)
 
-def m_clear(state, b1):
-    return [('make_clear', b1, b1)]
 
-pyhop2.declare_goal_methods('clear', m_clear)
+"""
+This does not accomplish the goal state.clear[b1] == False
+"""
+# def m_clear(state, b1):
+#     """Achieves the goal state.clear"""
+#     return [('make_clear', b1, b1)]
+
+# pyhop2.declare_goal_methods('clear', m_clear)
 
 def m_multi_stack(state, goal):
+    """
+    This multigoal methods solves a goal by choosing a
+    stack in the goal and building that stack in the state,
+    builing each goal stack untill all goal stacks are built.
+    """
     todo = []
     for i in range(len(state.stacks)):
         todo += m_multi_stack_aux(state, goal, i)
     return todo
 
 def m_multi_stack_aux(state, goal, stack: int):
+    """
+    This helps the multigoal method by building a specific stack
+    which is present in the goal.
+    """
     list_goal = gen.gen_list_representation(goal, state.max_stacks)
     if len(state.stacks) > len(list_goal): return None
     to_do = []
@@ -52,6 +78,11 @@ def m_multi_stack_aux(state, goal, stack: int):
 
 
 def m_dissolve_smallest_incorrect_stack(state, goal):
+    """
+    This identifies the smallest stack whose bottom
+    block does not belong on the table acording to
+    the goal. It then clears that stack from the table.
+    """
     min_stack = None
     for i in range(len(state.stacks)):
         if state.stacks[i] == []:
@@ -67,6 +98,14 @@ def m_dissolve_smallest_incorrect_stack(state, goal):
 pyhop2.declare_task_methods('dissolve_smallest_incorrect_stack', m_dissolve_smallest_incorrect_stack)
 
 def m_multi_level(state, goal):
+    """
+    This multigoal method works by completing each 'level' in the goal.
+    blocks on level 0 are on the table,
+    blocks on level 1 are on level 0 blocks,
+    level 2 blocks are on level 1 blocks, etc.
+    This method first accomplishes everything on level 0,
+    then level 1, ... onto the highest level in the goal.
+    """
     to_do = []
     curr_level = 0
     list_goal = gen.gen_list_representation(goal, state.max_stacks)

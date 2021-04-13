@@ -4,6 +4,9 @@ import pyhop2
 """Helper Functions"""
 
 def get_block_above(state, block):
+    """
+    return the block above the block passed into the func.
+    """
     if state.clear[block]: return None
     for stack in state.stacks:
         if block in stack:
@@ -11,14 +14,27 @@ def get_block_above(state, block):
 
 
 def get_stack_of_block(state, block):
+    """
+    returns the index of the stack that the block is in
+    in the state.stacks representation.
+    """
     for i in range(len(state.stacks)):
         if block in state.stacks[i]: return i
     return -1
 
 def remove_from_stack(state, block):
+    """ 
+    Edits the state.stacks representation to remove 
+    the block passed into the func
+    """
     state.stacks[get_stack_of_block(state, block)].remove(block)
 
 def first_empty_stack(state):
+    """
+    Find the empty stack with earliest index in the
+    state.stacks representation. If none is empty,
+    returns -1.
+    """
     for i in range(len(state.stacks)):
         if is_empty(state, i): return i
     return -1
@@ -36,7 +52,7 @@ Actions:
 
 
 
-"""moves a block from the table to a clear block"""
+"""moves a block from the table to a clear block, dest (short for destination)"""
 def stack(state, block, dest):
     if state.pos[block] == 'table' and state.clear[block] and state.clear[dest]:
         remove_from_stack(state,block)
@@ -46,7 +62,7 @@ def stack(state, block, dest):
         return state
 
 
-"""moves a block on another block to the table"""
+"""moves a block on the 'position' block to the table"""
 def unstack(state, block, position):
     if state.pos[block] == position and position != 'table' and state.clear[block]:
         empty_stack = first_empty_stack(state)

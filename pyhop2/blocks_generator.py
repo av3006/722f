@@ -25,8 +25,9 @@ def gen_blocks_state(num_blocks: int, stacking_likelihood: float, max_stacks, st
 
     """
     Iterating through the blocks and putting the block on the table with probability
-    (1 - stacking_probability).
-    If the block is to be stacked, it is equally likely to be placed on any clear block 
+    (1 - stacking_probability) unless the maximum number of stacks is reached, 
+    in which case it automatically choses to stack.
+    If the block is to be stacked, it is equally likely to be placed on any clear block.
     """
     table_counter = 1
     for block in blocks[1:] :
@@ -72,7 +73,15 @@ def permute_blocks(state):
         state.pos[block] = inverse_permutation[ copy.pos[permutation[block]] ]
         state.clear[block] = copy.clear[ permutation[block] ]
 
+
 def gen_list_representation(state, max_stacks):
+    """
+    Generates an alternate representation of the state which makes
+    keeping track of stacks much simpler. 
+    This generates a list of lists of blocks. Each sub-list represents
+    a stack of blocks where the block at index 0 is one the table, and
+    the block at index i+1 is on the block at index i.
+    """
     stacks = [] 
     for block in state.pos:
         if state.pos[block] == 'table':
