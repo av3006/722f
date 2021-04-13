@@ -5,6 +5,7 @@ import blocks_limited_stacks_actions as act
 import blocks_limited_stacks_methods
 import blocks_limited_stacks_goal_methods
 import blocks_generator as gen
+import blocks_limited_stacks_top_level_methods
 
 """
 Helper methods
@@ -69,7 +70,13 @@ blocks from the initial state have a declared position will work.
 """
 
 """Finding a solution, the displaying the initial state and goal"""
+
+"""
+You can either pass a [multigoal] as the todo
+or you can pass [('solve_goal', s0, goal_state)] as the todo
+"""
 print(pyhop2.find_plan(s_rand, [g]))
+print(pyhop2.find_plan(s_rand, [('solve_goal', g_rand)]))
 print(gen.gen_list_representation(s_rand, max_stacks))
 print(gen.gen_list_representation(g, max_stacks))
 
