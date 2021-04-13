@@ -7,7 +7,7 @@ Feb 18, 2021
 
 import pyhop2
 import random
-
+from timeit import default_timer as timer
 
 # For a more clever way to specify the domain name,
 # see blocks_tasks.py or blocks_goals.py
@@ -144,4 +144,14 @@ def main():
     pause()
 
     print("-- If verbose=3, the planner will print even more information.\n")
+    start1 = timer()
     result = pyhop2.find_plan_GBFS(state1,[('make_string','END')],h_BFS,verbose=3)
+    end1 = timer()
+    print(end1-start1)
+    start2 = timer()
+    result = pyhop2.find_plan_a_star(state1,[('make_string','END')],h_BFS,verbose=3)
+    end2 = timer()
+    print(end2-start2)
+
+if __name__ == "__main__":
+    main()

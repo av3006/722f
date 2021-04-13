@@ -1154,6 +1154,137 @@ def seek_plan_GBFS(plans, h, history, verbose=0):
                 f"depth {depth}: {todo1} isn't an action, task, goal, or multigoal\n")
     return False
 
+###############################################################################
+# A*
+import heapq
+
+class PriorityQueue:
+    def __init__(self):
+        self.heap = []
+        self.time = 0
+            
+    def pop(self):
+        value, _, item = heapq.heappop(self.heap)
+        return (value, item)
+
+    def push(self, value, item):
+        heapq.heappush(self.heap, (value, self.time, item))
+        self.time += 1
+
+
+def history_string(state, tasks):
+    return state.nameless_repr() + repr(tasks[0]) if tasks else ''
+
+def _apply_action_a_star(plans, state, task1, more_tasks, plan, depth, h, history, verbose=0):
+    """
+    apply_action is called only when task1's name matches an action name.
+    It applies the action by retrieving the action's function definition
+    and calling it on the arguments.
+    """
+    if verbose >= 3: print(f'depth {depth} action {task1}: apply action')
+    action = _current_domain._action_dict[task1[0]]
+    newstate = action(state.copy(),*task1[1:])
+    if newstate:
+        history_str = history_string(newstate, more_tasks)
+        if history_str in history:
+            if verbose >= 3:
+                print(f'depth {depth}', end=' ')
+                print(repr(newstate) + ' repeated, not put into queue')
+        else:
+            history[history_str] = True
+            h_new = h(newstate, more_tasks)
+            h_old = h(state, [task1])
+            h_use = h_new + h_old
+            if verbose >= 3:
+                print(f'depth {depth}', end=' ')
+                print(repr(newstate) + ' with heuristic ' + str(h_new))
+            plans.push(h_use, (newstate, more_tasks, plan+[task1], depth+1))
+    elif verbose >= 3: print(f'depth {depth} action {task1} not applicable')
+
+def _find_task_method_a_star(plans, state, task1, more_tasks, plan, depth, h, history, verbose=0):
+    """
+    if task1's name has an entry in the task-method dictionary, iterate
+    through the methods until we find one that's applicable, then apply
+    it to produce a list of subtasks, and call seek_plan recursively on
+    the subtask list + more_tasks.
+    If seek_plan fails, go on to the next method in the list.
+    """
+    if verbose >= 3: 
+        print(f'depth {depth} task {task1}: look for a task method')
+    relevant = _current_domain._task_method_dict[task1[0]]
+    if verbose >= 3:
+        print(f'depth {depth} task {task1} methods {[m.__name__ for m in relevant]}')
+    for method in relevant:
+        if verbose >= 3: 
+            print(f'depth {depth} task {task1}: trying method {method.__name__}')
+        subtasks = method(state,*task1[1:])
+        # Can't just say "if subtasks:", because that's wrong if subtasks == []
+        if subtasks != False and subtasks != None:
+            new_todo = subtasks+more_tasks
+            history_str = history_string(state, new_todo)
+            if history_str in history:
+                if verbose >= 3:
+                    print(f'depth {depth} task_method {method.__name__}', \
+                          f'subtasks: {subtasks} repeated, not put into queue')
+            else:
+                history[history_str] = True
+                h_new = h(state, new_todo)
+                h_old = h(state, [task1])
+                h_use = h_new + h_old
+                if verbose >= 3:
+                    print(f'depth {depth} task_method {method.__name__}', \
+                          f'subtasks: {subtasks} put into queue with heuristic {h_new}')
+                plans.push(h_use, (state, new_todo, plan, depth+1))
+        else:
+            if verbose >= 3:
+                print(f'depth {depth}', \
+                      f'task_method {method.__name__} not applicable')
+
+def find_plan_a_star(state, todo_list, h, verbose=0):
+    """
+    h is heuristic. Takes two arguments: state and todo-list
+    """
+    if verbose >= 1: 
+        todo_list_str =     \
+            '[' + ', '.join([_todo_to_string(x) for x in todo_list]) + ']'
+        print(f'FP> find_plan, verbose={verbose}:')
+        print(f'    state = {state.__name__}\n    todo_list = {todo_list_str}')
+    plans = PriorityQueue()
+    #f(n) = 0 here, only g(n) needed
+    plans.push(h(state, todo_list), (state, todo_list, [], 0))
+    result = seek_plan_a_star(plans, h, {history_string(state, todo_list): True}, verbose)
+    if verbose >= 1: print('FP> result =',result,'\n')
+    return result
+
+
+def seek_plan_a_star(plans, h, history, verbose=0):
+    """
+    plans is a priority queue with (state, todo_list, plan, depth) tuples sorted by heuristic
+    """
+    while plans:
+        h_pop, (state, todo_list, plan, depth) = plans.pop()
+        if verbose >= 2: 
+            todo_list_str =     \
+                    '[' + ', '.join([_todo_to_string(x) for x in todo_list]) + ']'
+            print(f'depth {depth} todo_list ' + todo_list_str + f' popped with heuristic {h_pop}')
+        if todo_list == []:
+            if verbose >= 3:
+                print(f'depth {depth} no more tasks or goals, return plan')
+            return plan
+        todo1 = todo_list[0]
+        ttype = get_type(todo1)
+        if ttype in {'list','tuple'}:
+            if todo1[0] in _current_domain._action_dict:
+                _apply_action_a_star(plans, state, todo1, todo_list[1:], \
+                                plan, depth, h, history, verbose=verbose)
+            elif todo1[0] in _current_domain._task_method_dict:
+                _find_task_method_a_star(plans, state, todo1, todo_list[1:], \
+                                    plan, depth, h, history, verbose=verbose)
+        else:
+            raise Exception(    \
+                f"depth {depth}: {todo1} isn't an action, task, goal, or multigoal\n")
+    return False
+
 
 
 
