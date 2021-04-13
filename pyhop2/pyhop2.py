@@ -1193,7 +1193,7 @@ def _apply_action_a_star(plans, state, task1, more_tasks, plan, depth, h, histor
         else:
             history[history_str] = True
             h_new = h(newstate, more_tasks)
-            h_old = h(state, [task1])
+            h_old = len(plan) #need another method here if actions have variable cost
             h_use = h_new + h_old
             if verbose >= 3:
                 print(f'depth {depth}', end=' ')
@@ -1229,7 +1229,7 @@ def _find_task_method_a_star(plans, state, task1, more_tasks, plan, depth, h, hi
             else:
                 history[history_str] = True
                 h_new = h(state, new_todo)
-                h_old = h(state, [task1])
+                h_old = len(plan) #need another method here if actions have variable cost
                 h_use = h_new + h_old
                 if verbose >= 3:
                     print(f'depth {depth} task_method {method.__name__}', \
