@@ -261,7 +261,10 @@ class Domain():
         
 
         # dictionary that maps each action name to the corresponding function
-        self._action_dict = {}    
+        self._action_dict = {}   
+        
+        # dictionary that maps each action name to the corresponding cost
+        self._action_cost_dict = {}    
             
         # dictionary that maps each command name to the corresponding function
         self._command_dict = {}
@@ -382,8 +385,15 @@ def declare_actions(*actions):
     if _current_domain == None:
         raise Exception(f"cannot declare actions until a domain has been created.")
     _current_domain._action_dict.update({act.__name__:act for act in actions})
+    for act in actions:
+        _current_domain._action_cost_dict.setdefault(act.__name__, 1)
     return _current_domain._action_dict
 
+def declare_actions_cost(*actions):
+    if _current_domain == None:
+        raise Exception(f"cannot declare actions until a domain has been created.")
+    _current_domain._action_cost_dict.update({act.__name__:cost for (act, cost) in actions})
+    return _current_domain._action_cost_dict
 
 def declare_commands(*commands):
     """
@@ -1175,6 +1185,12 @@ class PriorityQueue:
 def history_string(state, tasks):
     return state.nameless_repr() + repr(tasks[0]) if tasks else ''
 
+def current_cost(plan):
+    cost = 0
+    for item in plan:
+        cost = cost + _current_domain._action_cost_dict[item[0]]
+    return cost
+
 def _apply_action_a_star(plans, state, task1, more_tasks, plan, depth, h, history, verbose=0):
     """
     apply_action is called only when task1's name matches an action name.
@@ -1193,7 +1209,7 @@ def _apply_action_a_star(plans, state, task1, more_tasks, plan, depth, h, histor
         else:
             history[history_str] = True
             h_new = h(newstate, more_tasks)
-            h_old = len(plan) #need another method here if actions have variable cost
+            h_old = current_cost(plan)
             h_use = h_new + h_old
             if verbose >= 3:
                 print(f'depth {depth}', end=' ')
@@ -1229,7 +1245,7 @@ def _find_task_method_a_star(plans, state, task1, more_tasks, plan, depth, h, hi
             else:
                 history[history_str] = True
                 h_new = h(state, new_todo)
-                h_old = len(plan) #need another method here if actions have variable cost
+                h_old = current_cost(plan)
                 h_use = h_new + h_old
                 if verbose >= 3:
                     print(f'depth {depth} task_method {method.__name__}', \
