@@ -1,0 +1,3 @@
+import briefcase
+
+briefcase.main()

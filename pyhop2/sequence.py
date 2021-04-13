@@ -14,7 +14,7 @@ import random
 domain_name = 'sequence'
 
 # Create a new domain to contain the methods and operators
-pyhop2.Domain(domain_name)
+_current_domain = pyhop2.Domain(domain_name)
 
 
 ################################################################################
@@ -115,14 +115,12 @@ BFS_dist_vals = {}
 for c in rigid.types['character']:
     BFS_dist_vals[c] = BFS_dist(c, 'START')
 
-def h(state, todo_list):
+def h_BFS(state, todo_list):
     if todo_list:
         task = todo_list[0]
         if task[0] == 'make_string':
             return BFS_dist_vals[task[1]]
     return 0
-
-
 
 ###############################################################################
 # Running the examples
@@ -146,4 +144,4 @@ def main():
     pause()
 
     print("-- If verbose=3, the planner will print even more information.\n")
-    result = pyhop2.find_plan_GBFS(state1,[('make_string','END')],h,verbose=3)
+    result = pyhop2.find_plan_GBFS(state1,[('make_string','END')],h_BFS,verbose=3)

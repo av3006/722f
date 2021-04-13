@@ -1032,6 +1032,20 @@ def run_lazy_lookahead(state, todo_list, verbose=1, max_tries=10):
 # GBFS
 import heapq
 
+class PriorityQueue:
+    def __init__(self):
+        self.heap = []
+        self.time = 0
+            
+    def pop(self):
+        value, _, item = heapq.heappop(self.heap)
+        return (value, item)
+
+    def push(self, value, item):
+        heapq.heappush(self.heap, (value, self.time, item))
+        self.time += 1
+
+
 def history_string(state, tasks):
     return state.nameless_repr() + repr(tasks[0]) if tasks else ''
 
@@ -1056,7 +1070,7 @@ def _apply_action_GBFS(plans, state, task1, more_tasks, plan, depth, h, history,
             if verbose >= 3:
                 print(f'depth {depth}', end=' ')
                 print(repr(newstate) + ' with heuristic ' + str(h_new))
-            heapq.heappush(plans, (h_new, (newstate, more_tasks, plan+[task1], depth+1)))
+            plans.push(h_new, (newstate, more_tasks, plan+[task1], depth+1))
     elif verbose >= 3: print(f'depth {depth} action {task1} not applicable')
 
 def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, history, verbose=0):
@@ -1090,7 +1104,7 @@ def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, hist
                 if verbose >= 3:
                     print(f'depth {depth} task_method {method.__name__}', \
                           f'subtasks: {subtasks} put into queue with heuristic {h_new}')
-                heapq.heappush(plans, (h_new, (state, new_todo, plan, depth+1)))
+                plans.push(h_new, (state, new_todo, plan, depth+1))
         else:
             if verbose >= 3:
                 print(f'depth {depth}', \
@@ -1105,7 +1119,9 @@ def find_plan_GBFS(state, todo_list, h, verbose=0):
             '[' + ', '.join([_todo_to_string(x) for x in todo_list]) + ']'
         print(f'FP> find_plan, verbose={verbose}:')
         print(f'    state = {state.__name__}\n    todo_list = {todo_list_str}')
-    result = seek_plan_GBFS([(h(state, todo_list), (state, todo_list, [], 0))], h, {history_string(state, todo_list): True}, verbose)
+    plans = PriorityQueue()
+    plans.push(h(state, todo_list), (state, todo_list, [], 0))
+    result = seek_plan_GBFS(plans, h, {history_string(state, todo_list): True}, verbose)
     if verbose >= 1: print('FP> result =',result,'\n')
     return result
 
@@ -1115,7 +1131,7 @@ def seek_plan_GBFS(plans, h, history, verbose=0):
     plans is a priority queue with (state, todo_list, plan, depth) tuples sorted by heuristic
     """
     while plans:
-        h_pop, (state, todo_list, plan, depth) = heapq.heappop(plans)
+        h_pop, (state, todo_list, plan, depth) = plans.pop()
         if verbose >= 2: 
             todo_list_str =     \
                     '[' + ', '.join([_todo_to_string(x) for x in todo_list]) + ']'
