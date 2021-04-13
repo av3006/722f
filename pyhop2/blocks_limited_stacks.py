@@ -54,7 +54,19 @@ g_rand = gen.gen_blocks_state(num_blocks, stack_prob, max_stacks)
 """creating multigoal from random goal state"""
 g = pyhop2.Multigoal()
 g.pos = g_rand.pos
-g.clear = g_rand.clear
+
+""" 
+NOTE 1: Do no add the 'clear' dict to the goal;
+The methods are not set up to solve state.clear[b1] == False
+the 'clear' dict can be inferred from the 'pos' dict.
+"""
+# g.clear = g_rand.clear
+
+"""
+NOTE 2: The methods are only intended to solve complete plans,
+so I'm not sure if trying to plan for a goal in which not all 
+blocks from the initial state have a declared position will work.
+"""
 
 """Finding a solution, the displaying the initial state and goal"""
 print(pyhop2.find_plan(s_rand, [g]))

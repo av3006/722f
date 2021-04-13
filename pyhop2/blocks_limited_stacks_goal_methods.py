@@ -3,6 +3,17 @@ import blocks_limited_stacks_methods as meth
 import blocks_limited_stacks_actions as act
 import blocks_generator as gen
 
+"""
+This file contains methods used to solve entire problems,
+complete single goals, and helper task methods
+"""
+
+"""
+NOTE: The methods are only intended to solve complete plans,
+so I'm not sure if trying to plan for a goal in which not all 
+blocks from the initial state have a declared position will work.
+"""
+
 dummy_block = 'DUMMY_BLOCK'
 
 def m_pos(state, b1, b2):
