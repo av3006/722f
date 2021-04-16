@@ -187,27 +187,42 @@ dummy_block = 'DUMMY_BLOCK'
     Unfortunately, removing dummy blocks requires applying an 
     action which may saffect costs.
 """
-def m_remove_dummy(state):
+def remove_dummy(state):
     """ 
     Removes the dummy_block from the state.
     This must be used anytime after the dummy_block 
     is used to clear a stack.
     """
     for stack in state.stacks:
-        if dummy_block in stack: stack.remove(dummy_block)
+        if dummy_block in stack: 
+            stack.remove(dummy_block)
+            state.clear.pop(dummy_block, None)
+            state.pos.pop(dummy_block, None)
         if len(stack) > 0:
             state.pos[stack[0]] = 'table'
+    return state
     return []
 
-pyhop2.declare_task_methods('remove_dummy', m_remove_dummy)
+def insert_dummy(state, stack):
+    bottom = None
+    if state.stacks[stack]: 
+        bottom = state.stacks[stack][0]
+    state.stacks[stack].insert(0, dummy_block)
+    if bottom:
+        state.pos[bottom] = dummy_block
+        state.clear[dummy_block] = False
+    state.pos[dummy_block] = 'table'
+    return state
+
+
+pyhop2.declare_actions(insert_dummy, remove_dummy)
 
 def m_dissolve_stack(state, stack):
     """
     This is used to clear a specified stack from the table.
     Note that it can use any of the clearing methods for blocks.
     """
-    state.stacks[stack].insert(0,dummy_block)
-    return [('make_clear', dummy_block, dummy_block), ('remove_dummy')]
+    return [('insert_dummy', stack), ('make_clear', dummy_block, dummy_block), ('remove_dummy',)]
 
 pyhop2.declare_task_methods('dissolve_stack', m_dissolve_stack)
 

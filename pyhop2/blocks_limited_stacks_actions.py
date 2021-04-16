@@ -32,12 +32,10 @@ def remove_from_stack(state, block):
 def first_empty_stack(state):
     """
     Find the empty stack with earliest index in the
-    state.stacks representation. If none is empty,
-    returns -1.
+    state.stacks representation. 
     """
     for i in range(len(state.stacks)):
         if is_empty(state, i): return i
-    return -1
 
 def is_empty(state, stack_index):
     return state.stacks[stack_index] == []
