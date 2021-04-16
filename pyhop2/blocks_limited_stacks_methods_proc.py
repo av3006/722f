@@ -37,8 +37,9 @@ def is_level_done(state, goal, level):
 
 
 #################################################
-#actions
+#methods
 #################################################
+
 def m_put_on_stack(state, b1, stack):
     if not state.stacks[stack]:
         return [('move_one', b1, 'table')]
@@ -47,10 +48,6 @@ def m_put_on_stack(state, b1, stack):
         return [('move_one', b1, top)]
 
 pyhop2.declare_task_methods('put_on_stack', m_put_on_stack)
-
-#################################################
-#methods
-#################################################
 
 def m_move_one(state, b1, b2):
     """
@@ -95,19 +92,6 @@ def m_clear_block(state, b1):
         b_above = act.get_block_above(state, b1)
         return [('clear_block', b_above), ('move_somewhere_else', b_above)]
 
-def m_clear_2_blocks(state, b1, b2):
-    if state.clear[b1]:
-        if state.clear[b2]:
-            return []
-        else:
-            b_above = act.get_block_above(state, b2)
-            stack = act.get_stack_of_block(state, b1)
-            return [('clear_2_blocks', b1 , b_above), (f'move_somewhere_else_except_stack_{stack}', b_above)]
-    else:
-        b_above = act.get_block_above(state, b1)
-        stack = act.get_stack_of_block(state, b2)
-        return [('clear_2_blocks', b_above ,b2), (f'move_somewhere_else_except_stack_{stack}', b_above)]
-
 def m_clear_block_avoiding_stack(state, b1, stack):
     if state.clear[b1]:
         return []
@@ -118,7 +102,6 @@ def m_clear_block_avoiding_stack(state, b1, stack):
 
 
 pyhop2.declare_task_methods('clear_block', m_clear_block)
-pyhop2.declare_task_methods('clear_2_blocks', m_clear_2_blocks)
 pyhop2.declare_task_methods('clear_block_avoiding_stack', m_clear_block_avoiding_stack)
 
 def m_clear_stack(state, stack):
@@ -278,9 +261,8 @@ def main():
 
     print(gen.gen_list_representation(s0, _current_domain.max_stacks))
     print(gen.gen_list_representation(g, _current_domain.max_stacks))
-    print(pyhop2.find_plan(s0, [('pos', 'e', 'table', g)], verbose=2))
-    print(pyhop2.find_plan(s0, [('solve_goal', g)], verbose=3))
+    print(pyhop2.find_plan(s0, [('solve_goal', g)]))
     print(pyhop2.find_plan_GBFS(s0, [('solve_goal', g)], gen_strong_h(g)))
     #print(pyhop2.find_plan(s_rand, [('solve_goal', g_rand)]))
 
-#main()
+# main()
