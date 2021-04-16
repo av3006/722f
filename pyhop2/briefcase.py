@@ -70,6 +70,7 @@ def put_in(state,x,l):
             return state
 
 pyhop2.declare_actions(move, take_out, put_in)
+pyhop2.declare_actions((move,3), (take_out,2), (put_in,1))
 
 ###############################################################################
 # Methods:
@@ -108,6 +109,11 @@ def move_briefcases(state, g):
 pyhop2.declare_task_methods('move_briefcases',move_briefcases)
 
 
+###############################################################################
+# Cost
+# Define a function that maps 
+
+###############################################################################
 ###############################################################################
 # Heuristic
 
