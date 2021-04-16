@@ -77,7 +77,6 @@ def m_multi_stack_aux(state, goal, stack: int):
     which is present in the goal.
     """
     list_goal = gen.gen_list_representation(goal, state.max_stacks)
-    if len(state.stacks) > len(list_goal): return None
     to_do = []
     for stack in list_goal:
         for block in stack:
@@ -99,6 +98,7 @@ def m_dissolve_smallest_incorrect_stack(state, goal):
         if state.stacks[i] == []:
             return []
         bottom = state.stacks[i][0]
+        print(state.stacks)
         if goal.pos[bottom] != 'table': 
             if not min_stack: min_stack = i
             if len(state.stacks[i]) < len(state.stacks[min_stack]):

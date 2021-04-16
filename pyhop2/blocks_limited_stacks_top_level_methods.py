@@ -14,6 +14,13 @@ so I'm not sure if trying to plan for a goal in which not all
 blocks from the initial state have a declared position will work.
 """
 
+def stack_is_done(state, goal, stack):
+    blocks = state.stacks[stack]
+    for block in blocks:
+        if state.pos[block] != goal.pos[block]:
+            return False
+    return True
+
 dummy_block = 'DUMMY_BLOCK'
 
 def m_pos(state, b1, b2):
@@ -41,24 +48,14 @@ def m_pos(state, b1, b2):
                 empty_stack = i
                 break
         if empty_stack:
-            state.stacks[empty_stack] += [dummy_block]
-            return [('make_clear', b1, dummy_block), ('remove_dummy',), ('move_to_stack', b1, empty_stack)]
+            return [('insert_dummy', empty_stack), ('make_clear', b1, dummy_block), ('remove_dummy',), ('move_to_stack', b1, empty_stack)]
         else:
-            state.stacks[0].insert(0,dummy_block)
-            return [('clear', dummy_block, True), ('remove_dummy',), ('move_to_stack', b1, 0)]
+            return [('insert_dummy', 0), ('make_clear', dummy_block, dummy_block), ('remove_dummy',), ('move_to_stack', b1, 0)]
 
 
 pyhop2.declare_task_methods('pos', m_pos)
 
 
-"""
-This does not accomplish the goal state.clear[b1] == False
-"""
-# def m_clear(state, b1):
-#     """Achieves the goal state.clear"""
-#     return [('make_clear', b1, b1)]
-
-# pyhop2.declare_goal_methods('clear', m_clear)
 
 def m_multi_stack(state, goal):
     """
@@ -67,9 +64,13 @@ def m_multi_stack(state, goal):
     builing each goal stack untill all goal stacks are built.
     """
     todo = []
+    done = True
     for i in range(len(state.stacks)):
-        todo += m_multi_stack_aux(state, goal, i)
-    return todo
+        if not stack_is_done(state, goal, i):
+            done = False
+            todo += m_multi_stack_aux(state, goal, i) + [('multi_stack', goal)]
+            break
+    return [] if done else todo
 
 def m_multi_stack_aux(state, goal, stack: int):
     """
@@ -77,7 +78,6 @@ def m_multi_stack_aux(state, goal, stack: int):
     which is present in the goal.
     """
     list_goal = gen.gen_list_representation(goal, state.max_stacks)
-    if len(state.stacks) > len(list_goal): return None
     to_do = []
     for stack in list_goal:
         for block in stack:
@@ -103,7 +103,7 @@ def m_dissolve_smallest_incorrect_stack(state, goal):
             if not min_stack: min_stack = i
             if len(state.stacks[i]) < len(state.stacks[min_stack]):
                 min_stack = i
-    if not min_stack: return None
+    if not min_stack: return []
     return [('dissolve_stack', min_stack)]
 
 pyhop2.declare_task_methods('dissolve_smallest_incorrect_stack', m_dissolve_smallest_incorrect_stack)
@@ -123,6 +123,8 @@ def m_multi_level(state, goal):
     ceiling = max(list(map(len, list_goal)))
     for i in range(ceiling):
         for stack in list_goal:
+            if i == 0:
+                to_do += [('dissolve_smallest_incorrect_stack', goal)]
             if len(stack) > i:
                 to_do += [('pos', stack[i], stack[i-1] if i != 0 else 'table')]
     return to_do
