@@ -1059,7 +1059,7 @@ class PriorityQueue:
 def history_string(state, tasks):
     return state.nameless_repr() + repr(tasks[0]) if tasks else ''
 
-def _apply_action_GBFS(plans, state, task1, more_tasks, plan, depth, h, history, verbose=0):
+def _apply_action_GBFS(plans, state, task1, more_tasks, plan, depth, h, history, cost, c, a_star, verbose=0):
     """
     apply_action is called only when task1's name matches an action name.
     It applies the action by retrieving the action's function definition
@@ -1077,13 +1077,16 @@ def _apply_action_GBFS(plans, state, task1, more_tasks, plan, depth, h, history,
         else:
             history[history_str] = True
             h_new = h(newstate, more_tasks)
+            c_new = cost + c(newstate)
+            if a_star:
+                h_new += c_new
             if verbose >= 3:
                 print(f'depth {depth}', end=' ')
                 print(repr(newstate) + ' with heuristic ' + str(h_new))
-            plans.push(h_new, (newstate, more_tasks, plan+[task1], depth+1))
+            plans.push(h_new, (newstate, more_tasks, plan+[task1], c_new, depth+1))
     elif verbose >= 3: print(f'depth {depth} action {task1} not applicable')
 
-def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, history, verbose=0):
+def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, history, cost, c, a_star, verbose=0):
     """
     if task1's name has an entry in the task-method dictionary, iterate
     through the methods until we find one that's applicable, then apply
@@ -1111,16 +1114,19 @@ def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, hist
             else:
                 history[history_str] = True
                 h_new = h(state, new_todo)
+                c_new = cost + c(state)
+                if a_star:
+                    h_new += c_new
                 if verbose >= 3:
                     print(f'depth {depth} task_method {method.__name__}', \
                           f'subtasks: {subtasks} put into queue with heuristic {h_new}')
-                plans.push(h_new, (state, new_todo, plan, depth+1))
+                plans.push(h_new, (state, new_todo, plan, c_new, depth+1))
         else:
             if verbose >= 3:
                 print(f'depth {depth}', \
                       f'task_method {method.__name__} not applicable')
 
-def find_plan_GBFS(state, todo_list, h, verbose=0):
+def find_plan_GBFS(state, todo_list, h, c=lambda s: 1, a_star=False, verbose=0):
     """
     h is heuristic. Takes two arguments: state and todo-list
     """
@@ -1130,18 +1136,18 @@ def find_plan_GBFS(state, todo_list, h, verbose=0):
         print(f'FP> find_plan, verbose={verbose}:')
         print(f'    state = {state.__name__}\n    todo_list = {todo_list_str}')
     plans = PriorityQueue()
-    plans.push(h(state, todo_list), (state, todo_list, [], 0))
-    result = seek_plan_GBFS(plans, h, {history_string(state, todo_list): True}, verbose)
+    plans.push(0, (state, todo_list, [], 0, 0))
+    result = seek_plan_GBFS(plans, h, c, {history_string(state, todo_list): True}, a_star, verbose)
     if verbose >= 1: print('FP> result =',result,'\n')
     return result
 
 
-def seek_plan_GBFS(plans, h, history, verbose=0):
+def seek_plan_GBFS(plans, h, c, history, a_star, verbose=0):
     """
     plans is a priority queue with (state, todo_list, plan, depth) tuples sorted by heuristic
     """
     while plans:
-        h_pop, (state, todo_list, plan, depth) = plans.pop()
+        h_pop, (state, todo_list, plan, cost, depth) = plans.pop()
         if verbose >= 2: 
             todo_list_str =     \
                     '[' + ', '.join([_todo_to_string(x) for x in todo_list]) + ']'
@@ -1155,10 +1161,10 @@ def seek_plan_GBFS(plans, h, history, verbose=0):
         if ttype in {'list','tuple'}:
             if todo1[0] in _current_domain._action_dict:
                 _apply_action_GBFS(plans, state, todo1, todo_list[1:], \
-                                plan, depth, h, history, verbose=verbose)
+                                plan, depth, h, history, cost, c, a_star, verbose=verbose)
             elif todo1[0] in _current_domain._task_method_dict:
                 _find_task_method_GBFS(plans, state, todo1, todo_list[1:], \
-                                    plan, depth, h, history, verbose=verbose)
+                                    plan, depth, h, history, cost, c, a_star, verbose=verbose)
         else:
             raise Exception(    \
                 f"depth {depth}: {todo1} isn't an action, task, goal, or multigoal\n")
@@ -1167,23 +1173,6 @@ def seek_plan_GBFS(plans, h, history, verbose=0):
 ###############################################################################
 # A*
 import heapq
-
-class PriorityQueue:
-    def __init__(self):
-        self.heap = []
-        self.time = 0
-            
-    def pop(self):
-        value, _, item = heapq.heappop(self.heap)
-        return (value, item)
-
-    def push(self, value, item):
-        heapq.heappush(self.heap, (value, self.time, item))
-        self.time += 1
-
-
-def history_string(state, tasks):
-    return state.nameless_repr() + repr(tasks[0]) if tasks else ''
 
 def current_cost(plan):
     cost = 0

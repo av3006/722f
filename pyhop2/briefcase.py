@@ -1,13 +1,6 @@
-"""
-An expanded version of the "travel from home to the park" example in
-my lectures.
-Author: Dana Nau <nau@umd.edu>
-Feb 18, 2021
-"""
-
 import pyhop2
 import random
-
+from timeit import default_timer as timer
 
 # For a more clever way to specify the domain name,
 # see blocks_tasks.py or blocks_goals.py
@@ -23,29 +16,21 @@ _current_domain = pyhop2.Domain(domain_name)
 rigid = pyhop2.State('rigid relations')
 # These types are used by the 'is_a' helper function, later in this file
 rigid.types = {
-    'location': ['l1', 'l2', 'l3'],
-    'object': ['o1', 'o2']}
+    'location': [],
+    'object': []}
 #rigid.dist = { ('l1','l2'):1, ('l1','l3'):1, ('l2','l3'):1 }
-
-# prototypical initial state
-state0 = pyhop2.State()
-state0.loc = {'o1': 'l2', 'o2': 'l3', 'briefcase': 'l1'}
 
 ###############################################################################
 # Helper functions:
 
 def is_a(variable,type):
-    """
-    In most classical planners, one would declare data-types for the parameters
-    of each action, and the data-type checks would be done by the planner.
-    Pyhop 2 doesn't have a way to do that, so the 'is_a' function gives us a
-    way to do it in the preconditions of each action, command, and method.
-    
-    'is_a' doesn't implement subtypes (e.g., if rigid.type[x] = y and
-    rigid.type[x] = z, it doesn't infer that rigid.type[x] = z. It wouldn't be
-    hard to implement this, but it isn't needed in the simple-travel domain.
-    """
     return variable in rigid.types[type]
+
+def locations():
+    return rigid.types['location']
+
+def objects():
+    return rigid.types['object']
 
 
 ###############################################################################
@@ -70,7 +55,6 @@ def put_in(state,x,l):
             return state
 
 pyhop2.declare_actions(move, take_out, put_in)
-pyhop2.declare_actions((move,3), (take_out,2), (put_in,1))
 
 ###############################################################################
 # Methods:
@@ -78,7 +62,7 @@ pyhop2.declare_actions((move,3), (take_out,2), (put_in,1))
 def organize(state, g):
     x = state.loc['briefcase']
     todo = []
-    for obj in rigid.types['object']:
+    for obj in objects():
         if state.loc[obj] == 'briefcase' and g.loc[obj] == x:
             todo.append(('take_out', obj, x))
         elif state.loc[obj] == x and g.loc[obj] != x:
@@ -88,7 +72,7 @@ def organize(state, g):
 pyhop2.declare_task_methods('organize',organize)
 
 def do_nothing(state, g):
-    for obj in rigid.types['object']:
+    for obj in objects():
         if g.loc[obj] != state.loc[obj]:
             return None
     return []
@@ -100,8 +84,7 @@ def move_to_x(x):
     move_to_.__name__ += x
     return move_to_
 
-methods = [do_nothing] + [move_to_x(x) for x in rigid.types['location']]
-pyhop2.declare_task_methods('switch_rooms',*methods)
+# move methods declared in initialize function
 
 def move_briefcases(state, g):
     return [('organize', g), ('switch_rooms', g)]
@@ -125,9 +108,9 @@ def h(state, todo_list):
             break
     if goal:
         unsolved_rooms = {}
-        for l in rigid.types['location']:
+        for l in locations():
             unsolved_rooms[l] = 0
-        for obj in rigid.types['object']:
+        for obj in objects():
             sloc = state.loc[obj]
             gloc = goal.loc[obj]
             if sloc == 'briefcase':
@@ -148,6 +131,24 @@ print('-----------------------------------------------------------------------')
 print(f"Created the domain '{domain_name}'. To run the examples, type this:")
 print(f"{domain_name}.main()")
 
+def initialize_random_domain(n):
+    rigid.types['location'] = ['l' + str(i) for i in range(n)]
+    rigid.types['object'] = ['o' + str(i) for i in range(n)]
+    
+    methods = [do_nothing] + [move_to_x(x) for x in locations()]
+    pyhop2.declare_task_methods('switch_rooms',*methods)
+    
+    state0 = pyhop2.State()
+    state0.loc = {}
+    goal = pyhop2.State()
+    goal.loc = {}
+    for o in objects():
+        state0.loc[o] = random.sample(locations(), 1)[0]
+        goal.loc[o] = random.sample(locations(), 1)[0]
+    state0.loc['briefcase'] = random.sample(locations(), 1)[0]
+
+    return state0, goal
+
 def main():
     # Code for use in paging and debugging
     from check_result import check_result, pause, set_trace
@@ -156,16 +157,21 @@ def main():
     pyhop2.set_current_domain(domain_name)
     pyhop2.print_domain()
 
-    state1 = state0.copy()
 
-    state1.display(heading='\nInitial state is')
+    # state0.display(heading='\nInitial state is')
+    # goal.display(heading='\nGoal is')
 
-    goal = pyhop2.State()
-    goal.loc = {'o1': 'l1', 'o2': 'l2'}
+    print('\nBeginning testing\n')
+    print('Result length\tTime')
+    state0, goal = initialize_random_domain(10)
 
-    goal.display(heading='\nGoal is')
+    
+    start = timer()
+    result = pyhop2.find_plan_GBFS(state0,[('move_briefcases',goal)],h,verbose=0)
+    end = timer() 
+    print(f'{len(result)}\t\t{end - start}')
 
-    pause()
-
-    print("-- If verbose=3, the planner will print even more information.\n")
-    result = pyhop2.find_plan_GBFS(state1,[('move_briefcases',goal)],h,verbose=3)
+    start = timer()
+    result = pyhop2.find_plan_GBFS(state0,[('move_briefcases',goal)],h,a_star=True,verbose=0)
+    end = timer() 
+    print(f'{len(result)}\t\t{end - start}')
