@@ -1077,7 +1077,7 @@ def _apply_action_GBFS(plans, state, task1, more_tasks, plan, depth, h, history,
         else:
             history[history_str] = True
             h_new = h(newstate, more_tasks)
-            c_new = cost + c(newstate)
+            c_new = cost + c(task1)
             if a_star:
                 h_new += c_new
             if verbose >= 3:
@@ -1114,7 +1114,7 @@ def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, hist
             else:
                 history[history_str] = True
                 h_new = h(state, new_todo)
-                c_new = cost + c(state)
+                c_new = cost + c(task1)
                 if a_star:
                     h_new += c_new
                 if verbose >= 3:
@@ -1126,7 +1126,7 @@ def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, hist
                 print(f'depth {depth}', \
                       f'task_method {method.__name__} not applicable')
 
-def find_plan_GBFS(state, todo_list, h, c=lambda s: 1, a_star=False, verbose=0):
+def find_plan_GBFS(state, todo_list, h, c=lambda a: 1, a_star=False, verbose=0):
     """
     h is heuristic. Takes two arguments: state and todo-list
     """
