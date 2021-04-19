@@ -1,5 +1,6 @@
 import pyhop2
 import random
+from itertools import combinations
 from timeit import default_timer as timer
 
 # For a more clever way to specify the domain name,
@@ -18,7 +19,7 @@ rigid = pyhop2.State('rigid relations')
 rigid.types = {
     'location': [],
     'object': []}
-#rigid.dist = { ('l1','l2'):1, ('l1','l3'):1, ('l2','l3'):1 }
+rigid.dist = {}
 
 ###############################################################################
 # Helper functions:
@@ -31,6 +32,9 @@ def locations():
 
 def objects():
     return rigid.types['object']
+
+def distance(x,y):
+    return rigid.dist.get((x,y)) or rigid.dist.get((y,x))
 
 
 ###############################################################################
@@ -100,7 +104,7 @@ pyhop2.declare_task_methods('move_briefcases',move_briefcases)
 ###############################################################################
 # Heuristic
 
-def h(state, todo_list):
+def h_moves(state, todo_list):
     goal = None
     for task in todo_list:
         if task[0] in _current_domain._task_method_dict:
@@ -124,6 +128,41 @@ def h(state, todo_list):
         return unsolved
     return 0
 
+
+def h_actions(state, todo_list):
+    goal = None
+    for task in todo_list:
+        if task[0] in _current_domain._task_method_dict:
+            goal = task[1]
+            break
+    if goal:
+        h = 0
+        unsolved_rooms = {}
+        for l in locations():
+            unsolved_rooms[l] = 0
+        for obj in objects():
+            sloc = state.loc[obj]
+            gloc = goal.loc[obj]
+            if sloc == 'briefcase':
+                unsolved_rooms[gloc] = 1
+                h += 1
+            elif sloc != gloc:
+                unsolved_rooms[sloc] = 1
+                unsolved_rooms[gloc] = 1
+                h += 2
+        unsolved = 0
+        for l in unsolved_rooms:
+            unsolved += unsolved_rooms[l]
+        return h + unsolved
+    return 0
+
+def c_moves(action):
+    return 1 if action[0] == 'move' else 0
+
+def c_dist(action):
+    return distance(*action[1:]) if action[0] == 'move' else 0
+
+
 ###############################################################################
 # Running the examples
 
@@ -134,7 +173,9 @@ print(f"{domain_name}.main()")
 def initialize_random_domain(n):
     rigid.types['location'] = ['l' + str(i) for i in range(n)]
     rigid.types['object'] = ['o' + str(i) for i in range(n)]
-    
+    for pair in combinations(locations(), r=2):
+        rigid.dist[pair] = random.randrange(1,6)
+
     methods = [do_nothing] + [move_to_x(x) for x in locations()]
     pyhop2.declare_task_methods('switch_rooms',*methods)
     
@@ -149,29 +190,42 @@ def initialize_random_domain(n):
 
     return state0, goal
 
+def cost(result, c):
+    final = 0
+    for action in result:
+        final += c(action)
+    return final
+
+def test(h, c, size=10, iter=100):
+    costSum = {True: 0, False: 0}
+    timeSum = {True: 0, False: 0}
+    for i in range(iter):
+        print(i)
+        state0, goal = initialize_random_domain(size)
+        for a_star in [True, False]:
+            start = timer()
+            result = pyhop2.find_plan_GBFS(state0,[('move_briefcases',goal)],h,a_star=a_star,c=c, verbose=0)
+            end = timer() 
+            costSum[a_star] += cost(result, c)
+            timeSum[a_star] += end - start
+
+    for metric in [costSum, timeSum]:
+        for a_star in [True, False]:
+            metric[a_star] /= float(iter)
+
+    return costSum, timeSum
+
 def main():
     # Code for use in paging and debugging
     from check_result import check_result, pause, set_trace
     
     # If we've changed to some other domain, this will change us back.
     pyhop2.set_current_domain(domain_name)
-    pyhop2.print_domain()
+    # pyhop2.print_domain()
 
 
     # state0.display(heading='\nInitial state is')
     # goal.display(heading='\nGoal is')
 
-    print('\nBeginning testing\n')
-    print('Result length\tTime')
-    state0, goal = initialize_random_domain(10)
-
-    
-    start = timer()
-    result = pyhop2.find_plan_GBFS(state0,[('move_briefcases',goal)],h,verbose=0)
-    end = timer() 
-    print(f'{len(result)}\t\t{end - start}')
-
-    start = timer()
-    result = pyhop2.find_plan_GBFS(state0,[('move_briefcases',goal)],h,a_star=True,verbose=0)
-    end = timer() 
-    print(f'{len(result)}\t\t{end - start}')
+    avgCost, avgTime = test(h_moves, c_dist, size=15, iter=100)
+    print(avgCost, avgTime)
