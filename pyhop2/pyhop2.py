@@ -1114,7 +1114,7 @@ def _find_task_method_GBFS(plans, state, task1, more_tasks, plan, depth, h, hist
             else:
                 history[history_str] = True
                 h_new = h(state, new_todo)
-                c_new = cost + c(task1)
+                c_new = cost  # no action taken yet
                 if a_star:
                     h_new += c_new
                 if verbose >= 3:

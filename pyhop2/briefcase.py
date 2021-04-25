@@ -36,6 +36,22 @@ def objects():
 def distance(x,y):
     return rigid.dist.get((x,y)) or rigid.dist.get((y,x))
 
+def unsolved_locations(state, goal, to_move=False):
+    unsolved_loc = set()
+    for obj in objects():
+        sloc = state.loc[obj]
+        gloc = goal.loc[obj]
+        if sloc == 'briefcase':
+            unsolved_loc.add(gloc)
+        elif sloc != gloc:
+            unsolved_loc.add(sloc)
+            if not to_move:
+                unsolved_loc.add(gloc)
+    return unsolved_loc
+
+def locations_to_move(state, goal):
+    return unsolved_locations(state, goal, to_move=True)
+
 
 ###############################################################################
 # Actions:
@@ -83,7 +99,7 @@ def do_nothing(state, g):
 
 def move_to_x(x):
     def move_to_(state, g):
-        if state.loc['briefcase'] != x:
+        if x in locations_to_move(state, g) and state.loc['briefcase'] != x:
             return [('move', state.loc['briefcase'], x), ('move_briefcases', g)]
     move_to_.__name__ += x
     return move_to_
@@ -111,49 +127,8 @@ def h_moves(state, todo_list):
             goal = task[1]
             break
     if goal:
-        unsolved_rooms = {}
-        for l in locations():
-            unsolved_rooms[l] = 0
-        for obj in objects():
-            sloc = state.loc[obj]
-            gloc = goal.loc[obj]
-            if sloc == 'briefcase':
-                unsolved_rooms[gloc] = 1
-            elif sloc != gloc:
-                unsolved_rooms[sloc] = 1
-                unsolved_rooms[gloc] = 1
-        unsolved = 0
-        for l in unsolved_rooms:
-            unsolved += unsolved_rooms[l]
-        return unsolved
-    return 0
-
-
-def h_actions(state, todo_list):
-    goal = None
-    for task in todo_list:
-        if task[0] in _current_domain._task_method_dict:
-            goal = task[1]
-            break
-    if goal:
-        h = 0
-        unsolved_rooms = {}
-        for l in locations():
-            unsolved_rooms[l] = 0
-        for obj in objects():
-            sloc = state.loc[obj]
-            gloc = goal.loc[obj]
-            if sloc == 'briefcase':
-                unsolved_rooms[gloc] = 1
-                h += 1
-            elif sloc != gloc:
-                unsolved_rooms[sloc] = 1
-                unsolved_rooms[gloc] = 1
-                h += 2
-        unsolved = 0
-        for l in unsolved_rooms:
-            unsolved += unsolved_rooms[l]
-        return h + unsolved
+        unsolved_loc = unsolved_locations(state, goal)
+        return len(unsolved_loc)
     return 0
 
 def c_moves(action):
@@ -174,11 +149,15 @@ def initialize_random_domain(n):
     rigid.types['location'] = ['l' + str(i) for i in range(n)]
     rigid.types['object'] = ['o' + str(i) for i in range(n)]
     for pair in combinations(locations(), r=2):
-        rigid.dist[pair] = random.randrange(1,6)
-
+        rigid.dist[pair] = 1
     methods = [do_nothing] + [move_to_x(x) for x in locations()]
     pyhop2.declare_task_methods('switch_rooms',*methods)
-    
+
+def initialize_random_dist():
+    for pair in rigid.dist:
+        rigid.dist[pair] = random.randrange(1,6)
+
+def create_random_problem():
     state0 = pyhop2.State()
     state0.loc = {}
     goal = pyhop2.State()
@@ -187,7 +166,6 @@ def initialize_random_domain(n):
         state0.loc[o] = random.sample(locations(), 1)[0]
         goal.loc[o] = random.sample(locations(), 1)[0]
     state0.loc['briefcase'] = random.sample(locations(), 1)[0]
-
     return state0, goal
 
 def cost(result, c):
@@ -197,21 +175,30 @@ def cost(result, c):
     return final
 
 def test(h, c, size=10, iter=100):
-    costSum = {True: 0, False: 0}
-    timeSum = {True: 0, False: 0}
+    initialize_random_domain(size)
+    costSum = {'base': 0, 'gbfs': 0, 'a_star': 0}
+    timeSum = {'base': 0, 'gbfs': 0, 'a_star': 0}
     for i in range(iter):
         print(i)
-        state0, goal = initialize_random_domain(size)
-        for a_star in [True, False]:
+        initialize_random_dist()
+        state0, goal = create_random_problem()
+
+        start = timer()
+        result = pyhop2.find_plan(state0,[('move_briefcases',goal)],verbose=0)
+        end = timer() 
+        costSum['base'] += cost(result, c)
+        timeSum['base'] += end - start
+
+        for (a_star, name) in [(True, 'a_star'), (False, 'gbfs')]:
             start = timer()
             result = pyhop2.find_plan_GBFS(state0,[('move_briefcases',goal)],h,a_star=a_star,c=c, verbose=0)
             end = timer() 
-            costSum[a_star] += cost(result, c)
-            timeSum[a_star] += end - start
+            costSum[name] += cost(result, c)
+            timeSum[name] += end - start
 
     for metric in [costSum, timeSum]:
-        for a_star in [True, False]:
-            metric[a_star] /= float(iter)
+        for name in metric:
+            metric[name] /= float(iter)
 
     return costSum, timeSum
 
@@ -227,5 +214,5 @@ def main():
     # state0.display(heading='\nInitial state is')
     # goal.display(heading='\nGoal is')
 
-    avgCost, avgTime = test(h_moves, c_dist, size=15, iter=100)
+    avgCost, avgTime = test(h_moves, c_dist, size=15, iter=500)
     print(avgCost, avgTime)
